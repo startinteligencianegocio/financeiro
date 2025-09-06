@@ -1,6 +1,7 @@
 import streamlit as st
 from db import get_connection
 from css import local_css
+import pymysql
 
 def show():
     local_css()
@@ -29,7 +30,7 @@ def show():
     # ===== LISTAGEM DE FORMAS =====
     st.write("### Lista de Formas de Pagamento")
     conn = get_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor(pymysql.cursors.DictCursor)  # resultados como dict
     cur.execute("SELECT * FROM DP_FORMAS_PAGTO ORDER BY id")
     formas = cur.fetchall()
     cur.close()
@@ -40,7 +41,6 @@ def show():
 
     # ===== LISTAGEM COM BOTÕES =====
     for f in formas:
-        # Espaço entre linhas
         st.markdown("<div style='margin-bottom: 15px;'>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([3, 1, 1])
 

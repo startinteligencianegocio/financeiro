@@ -1,6 +1,7 @@
 import streamlit as st
 from db import get_connection
-from css import local_css 
+from css import local_css
+import pymysql
 
 def show():
     local_css()
@@ -31,7 +32,7 @@ def show():
 
     # Buscar tipos do banco
     conn = get_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor(pymysql.cursors.DictCursor)  # resultados como dicionário
     cur.execute("SELECT * FROM DP_TIPO_RECEITAS_DESPESAS ORDER BY id")
     tipos = cur.fetchall()
     cur.close()

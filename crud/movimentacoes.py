@@ -1,3 +1,4 @@
+# movimentacoes.py
 import streamlit as st
 from db import get_connection
 from datetime import date, datetime
@@ -42,8 +43,8 @@ def show():
     # Carregar dados auxiliares
     # -------------------------
     conn = get_connection()
-    cur = conn.cursor(dictionary=True)
-
+    cur = conn.cursor()
+    
     cur.execute("SELECT id, descricao, tipo_receita_despesas FROM DP_TIPO_RECEITAS_DESPESAS")
     tipos = cur.fetchall() or []
 
@@ -70,7 +71,7 @@ def show():
     edit_mode = st.session_state.edit_id is not None
     if edit_mode:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
         cur.execute("SELECT * FROM DP_MOVIMENTACOES WHERE id=%s", (st.session_state.edit_id,))
         mov = cur.fetchone()
         cur.close()
@@ -80,7 +81,7 @@ def show():
         subtipo_val = next((k for k,v in map_sub.items() if v == mov["id_subtipo_despesas"]), "")
         fornecedor_val = next((k for k,v in map_for.items() if v == mov["id_fornecedor"]), "")
         forma_val = next((k for k,v in map_pag.items() if v == mov["id_forma_pagamento"]), "")
-        valor_val = float(mov["valor"])
+        valor_val = float(mov["valor"]) if mov["valor"] is not None else 0.0
         data_lanc_val = format_date(mov["data_lancamento"])
         data_venc_val = format_date(mov["data_vencimento"])
         data_pag_val = format_date(mov["data_pagamento"])
@@ -109,7 +110,7 @@ def show():
                 min_value=0.0,
                 format="%.2f",
                 step=0.01,
-                value=float(valor_val)
+                value=valor_val
             )
         with col2:
             options_sub = [""] + list(map_sub.keys())
@@ -198,7 +199,7 @@ def show():
     # Listagem das movimentações
     # -------------------------
     conn = get_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor()
     cur.execute("""
         SELECT m.id, m.valor, m.data_lancamento, m.data_vencimento, m.data_pagamento,
                t.descricao as tipo_nome, s.descricao as sub_nome, f.razao_social, p.descricao as forma
@@ -214,43 +215,45 @@ def show():
     conn.close()
 
     for m in movs:
-        with st.container():
-            st.markdown(
-                f"""
-                <div class="card">
-                    <b>{m['tipo_nome']} - {m['sub_nome'] or '-'}</b><br>
-                    Fornecedor: {m['razao_social']} | Forma: {m['forma']}<br>
-                    Valor: R$ {m['valor']:.2f} | Lanç: {format_date(m['data_lancamento'])} | 
-                    Venc: {format_date(m['data_vencimento'])} | Pag: {format_date(m['data_pagamento'])}
-                </div>
-                """, unsafe_allow_html=True
-            )
+        try:
+            valor = float(m["valor"]) if m["valor"] is not None else 0.0
+        except:
+            valor = 0.0
 
-            col1, col2 = st.columns([1,1])
-            with col1:
-                if st.button("✏️ Alterar", key=f"edit_{m['id']}"):
-                    st.session_state.edit_id = m["id"]
-                    st.rerun()
-            with col2:
-                if st.session_state.delete_id == m["id"]:
-                    # Exibe botões de confirmação
-                    col_c1, col_c2 = st.columns([1,1])
-                    with col_c1:
-                        if st.button("✅ Confirmar", key=f"confirm_{m['id']}"):
-                            conn = get_connection()
-                            cur = conn.cursor()
-                            cur.execute("DELETE FROM DP_MOVIMENTACOES WHERE id=%s", (m["id"],))
-                            conn.commit()
-                            cur.close()
-                            conn.close()
-                            st.success("Movimentação excluída!")
-                            st.session_state.delete_id = None
-                            st.rerun()
-                    with col_c2:
-                        if st.button("❌ Cancelar", key=f"cancel_{m['id']}"):
-                            st.session_state.delete_id = None
-                            st.rerun()
-                else:
-                    if st.button("🗑️ Excluir", key=f"del_{m['id']}"):
-                        st.session_state.delete_id = m["id"]
+        html_card = (
+            f'<div class="card">'
+            f'<b>{m["tipo_nome"]} - {m["sub_nome"] or "-"}</b><br>'
+            f'Fornecedor: {m["razao_social"]} | Forma: {m["forma"]}<br>'
+            f'Valor: R$ {valor:.2f} | Lanç: {format_date(m["data_lancamento"])} | '
+            f'Venc: {format_date(m["data_vencimento"])} | Pag: {format_date(m["data_pagamento"])}'
+            f'</div>'
+        )
+        st.markdown(html_card, unsafe_allow_html=True)
+
+        col1, col2 = st.columns([1,1])
+        with col1:
+            if st.button("✏️ Alterar", key=f"edit_{m['id']}"):
+                st.session_state.edit_id = m["id"]
+                st.rerun()
+        with col2:
+            if st.session_state.delete_id == m["id"]:
+                col_c1, col_c2 = st.columns([1,1])
+                with col_c1:
+                    if st.button("✅ Confirmar", key=f"confirm_{m['id']}"):
+                        conn = get_connection()
+                        cur = conn.cursor()
+                        cur.execute("DELETE FROM DP_MOVIMENTACOES WHERE id=%s", (m["id"],))
+                        conn.commit()
+                        cur.close()
+                        conn.close()
+                        st.success("Movimentação excluída!")
+                        st.session_state.delete_id = None
                         st.rerun()
+                with col_c2:
+                    if st.button("❌ Cancelar", key=f"cancel_{m['id']}"):
+                        st.session_state.delete_id = None
+                        st.rerun()
+            else:
+                if st.button("🗑️ Excluir", key=f"del_{m['id']}"):
+                    st.session_state.delete_id = m["id"]
+                    st.rerun()

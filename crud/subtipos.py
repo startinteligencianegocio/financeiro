@@ -1,6 +1,7 @@
 import streamlit as st
 from db import get_connection
 from css import local_css
+import pymysql
 
 def show():
     local_css()
@@ -8,7 +9,7 @@ def show():
 
     # --- Buscar tipos existentes ---
     conn = get_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor(pymysql.cursors.DictCursor)
     cur.execute("SELECT * FROM DP_TIPO_RECEITAS_DESPESAS")
     tipos = cur.fetchall()
     cur.close()
@@ -40,7 +41,7 @@ def show():
     # --- Listar SubTipos existentes ---
     st.write("### Lista de SubTipos")
     conn = get_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor(pymysql.cursors.DictCursor)
     cur.execute("""
         SELECT s.id, s.descricao, t.descricao as tipo_nome, t.tipo_receita_despesas 
         FROM DP_SUBTIPO_REC_DESP s
@@ -58,8 +59,9 @@ def show():
 
         # Botão Alterar
         if col3.button("Alterar", key=f"alt_sub_{s['id']}"):
-            st.session_state[f"edit_sub_id"] = s["id"]
-            st.session_state[f"edit_sub_desc"] = s["descricao"]
+            st.session_state["edit_sub_id"] = s["id"]
+            st.session_state["edit_sub_desc"] = s["descricao"]
+            st.rerun()
 
         # Botão Excluir
         if col4.button("Excluir", key=f"del_sub_{s['id']}"):

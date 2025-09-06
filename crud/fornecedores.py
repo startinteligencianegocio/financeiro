@@ -1,6 +1,8 @@
 import streamlit as st
+import pymysql
 from db import get_connection
 from css import local_css  # Importa o css.py
+
 
 def show():
     # Aplica CSS personalizado
@@ -35,7 +37,7 @@ def show():
 
     # Buscar fornecedores
     conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(pymysql.cursors.DictCursor)  # Agora os resultados vêm como dict
     cursor.execute("SELECT * FROM DP_FORNECEDORES ORDER BY razao_social")
     fornecedores = cursor.fetchall()
     cursor.close()
@@ -79,7 +81,7 @@ def show():
         novo_nome = st.text_input("Novo Nome", st.session_state.edit_razao_social, key="nome_edit")
         novo_cnpj = st.text_input("Novo CNPJ", st.session_state.edit_cnpj, key="cnpj_edit")
 
-        col_save, col_cancel = st.columns([1,1])
+        col_save, col_cancel = st.columns([1, 1])
         with col_save:
             if st.button("Salvar Alterações", key="btn_save"):
                 if novo_nome.strip() == "" or novo_cnpj.strip() == "":
