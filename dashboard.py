@@ -5,16 +5,21 @@ import plotly.express as px
 from db import get_connection
 from datetime import datetime, date
 import css
-import locale
 import calendar
 
-# Configurar locale para pt_BR
-try:
-    # Para Linux/Ubuntu (Streamlit Cloud)
-    locale.setlocale(locale.LC_TIME, "pt_BR.UTF-8")
-except locale.Error:
-    # Fallback para Windows (desenvolvimento local)
-    locale.setlocale(locale.LC_TIME, "Portuguese_Brazil.1252")
+# Traduções manuais para meses/dias em português
+MESES_PT = {
+    1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
+    5: "maio", 6: "junho", 7: "julho", 8: "agosto",
+    9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
+}
+DIAS_PT = ["segunda-feira", "terça-feira", "quarta-feira",
+           "quinta-feira", "sexta-feira", "sábado", "domingo"]
+
+
+def formatar_data(data: date) -> str:
+    """Formata a data em português (DD de mês de AAAA)."""
+    return f"{data.day} de {MESES_PT[data.month]} de {data.year}"
 
 
 def input_data(label, valor_padrao):
@@ -40,11 +45,9 @@ def show():
     # === Inputs de data ===
     col1, col2 = st.columns(2)
     with col1:
-        # Primeiro dia do mês corrente
         primeiro_dia_mes = date(datetime.now().year, datetime.now().month, 1)
         data_inicial = input_data("📅 Data inicial", primeiro_dia_mes)
     with col2:
-        # Último dia do mês corrente
         ultimo_dia_mes = date(
             datetime.now().year,
             datetime.now().month,
@@ -52,11 +55,9 @@ def show():
         )
         data_final = input_data("📅 Data final", ultimo_dia_mes)
 
-    # Validar se datas são válidas antes de consultar
     if data_inicial is None or data_final is None:
-        st.stop()  # Interrompe execução até datas corretas
+        st.stop()
 
-    # Converter para formato YYYY-MM-DD para SQL
     data_inicial_db = data_inicial.strftime("%Y-%m-%d")
     data_final_db = data_final.strftime("%Y-%m-%d")
 
@@ -142,16 +143,7 @@ def show():
             plot_bgcolor="white",
             paper_bgcolor="white",
             bargap=0.4,
-            margin=dict(l=40, r=40, t=40, b=40),
-            shapes=[
-                dict(
-                    type="rect",
-                    xref="paper", yref="paper",
-                    x0=0, y0=0, x1=1, y1=1,
-                    line=dict(color=saldo_cor, width=3),
-                    layer="below"
-                )
-            ]
+            margin=dict(l=40, r=40, t=40, b=40)
         )
 
         st.plotly_chart(fig, use_container_width=True)
