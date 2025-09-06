@@ -10,9 +10,10 @@ import calendar
 
 # Configurar locale para pt_BR
 try:
+    # Para Linux/Ubuntu (Streamlit Cloud)
     locale.setlocale(locale.LC_TIME, "pt_BR.UTF-8")
 except locale.Error:
-    # fallback no Windows
+    # Fallback para Windows (desenvolvimento local)
     locale.setlocale(locale.LC_TIME, "Portuguese_Brazil.1252")
 
 
