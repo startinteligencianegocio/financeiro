@@ -6,9 +6,15 @@ from db import get_connection
 from datetime import datetime, date
 import css
 import locale
+import calendar
 
 # Configurar locale para pt_BR
-locale.setlocale(locale.LC_TIME, "pt_BR.UTF-8")
+try:
+    locale.setlocale(locale.LC_TIME, "pt_BR.UTF-8")
+except locale.Error:
+    # fallback no Windows
+    locale.setlocale(locale.LC_TIME, "Portuguese_Brazil.1252")
+
 
 def input_data(label, valor_padrao):
     """
@@ -23,6 +29,7 @@ def input_data(label, valor_padrao):
         return None
     return data_obj
 
+
 def show():
     # Aplicar CSS personalizado
     css.local_css()
@@ -36,7 +43,13 @@ def show():
         primeiro_dia_mes = date(datetime.now().year, datetime.now().month, 1)
         data_inicial = input_data("📅 Data inicial", primeiro_dia_mes)
     with col2:
-        data_final = input_data("📅 Data final", datetime.now())
+        # Último dia do mês corrente
+        ultimo_dia_mes = date(
+            datetime.now().year,
+            datetime.now().month,
+            calendar.monthrange(datetime.now().year, datetime.now().month)[1]
+        )
+        data_final = input_data("📅 Data final", ultimo_dia_mes)
 
     # Validar se datas são válidas antes de consultar
     if data_inicial is None or data_final is None:
@@ -48,18 +61,19 @@ def show():
 
     # === Conexão com banco de dados ===
     conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
+    if not conn:
+        st.error("❌ Falha na conexão com o banco de dados.")
+        st.stop()
 
-    # === Consulta SQL com filtro de datas ===
-    cursor.execute("""
-        SELECT tipo_receita_despesas, SUM(valor) as total
-        FROM DP_MOVIMENTACOES
-        WHERE data_vencimento BETWEEN %s AND %s
-        GROUP BY tipo_receita_despesas
-    """, (data_inicial_db, data_final_db))
-    
-    dados = cursor.fetchall()
-    cursor.close()
+    with conn.cursor() as cursor:
+        cursor.execute("""
+            SELECT tipo_receita_despesas, SUM(valor) as total
+            FROM DP_MOVIMENTACOES
+            WHERE data_vencimento BETWEEN %s AND %s
+            GROUP BY tipo_receita_despesas
+        """, (data_inicial_db, data_final_db))
+        dados = cursor.fetchall()
+
     conn.close()
 
     # === Criar DataFrame ===
@@ -69,20 +83,13 @@ def show():
     despesas = df[df["tipo_receita_despesas"]=="D"]["total"].sum() if not df.empty else 0
     saldo = receitas - despesas
 
-    # === KPIs coloridos com HTML/CSS ===
+    # === KPIs coloridos ===
     col1, col2, col3 = st.columns(3)
 
-    # Receita (verde)
     with col1:
         st.markdown(
             f"""
-            <div style="
-                background-color: green;
-                color: white;
-                padding: 20px;
-                border-radius: 10px;
-                text-align: center;
-            ">
+            <div style="background-color: green; color: white; padding: 20px; border-radius: 10px; text-align: center;">
                 <h4>Receitas</h4>
                 <h3>R$ {receitas:,.2f}</h3>
             </div>
@@ -90,17 +97,10 @@ def show():
             unsafe_allow_html=True
         )
 
-    # Despesas (vermelho)
     with col2:
         st.markdown(
             f"""
-            <div style="
-                background-color: red;
-                color: white;
-                padding: 20px;
-                border-radius: 10px;
-                text-align: center;
-            ">
+            <div style="background-color: red; color: white; padding: 20px; border-radius: 10px; text-align: center;">
                 <h4>Despesas</h4>
                 <h3>R$ {despesas:,.2f}</h3>
             </div>
@@ -108,18 +108,11 @@ def show():
             unsafe_allow_html=True
         )
 
-    # Saldo (dinâmico: verde positivo, vermelho negativo, azul neutro)
     saldo_cor = "green" if saldo > 0 else "red" if saldo < 0 else "blue"
     with col3:
         st.markdown(
             f"""
-            <div style="
-                background-color: {saldo_cor};
-                color: white;
-                padding: 20px;
-                border-radius: 10px;
-                text-align: center;
-            ">
+            <div style="background-color: {saldo_cor}; color: white; padding: 20px; border-radius: 10px; text-align: center;">
                 <h4>Saldo</h4>
                 <h3>R$ {saldo:,.2f}</h3>
             </div>
@@ -135,16 +128,12 @@ def show():
             y="total",
             color="tipo_receita_despesas",
             labels={"tipo_receita_despesas": "Tipo", "total": "Valor"},
-            color_discrete_map={
-                "R": "green",   # Receitas em verde
-                "D": "red"      # Despesas em vermelho
-            },
-            text_auto='.2s',   # mostra valores nas barras
-            height=350,        # altura do gráfico em pixels
-            width=800          # largura do gráfico em pixels
+            color_discrete_map={"R": "green", "D": "red"},
+            text_auto='.2s',
+            height=350,
+            width=800
         )
 
-        # Layout com borda dentro do próprio gráfico
         fig.update_layout(
             showlegend=False,
             xaxis_title="",
@@ -165,6 +154,5 @@ def show():
         )
 
         st.plotly_chart(fig, use_container_width=True)
-
     else:
         st.warning("⚠️ Nenhum dado encontrado para o período selecionado.")
